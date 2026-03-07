@@ -212,12 +212,12 @@ void *hello_handler(void *ctx)
     if(strcmp(client->method, "POST") == EXIT_SUCCESS) {
         char *message = "Hello Hello\n"
                 "POST Request sent \n"
-                "This is response.\n";
+                "This is POST response.\n";
         success_response(client, message);
     } else if(strcmp(client->method, "GET") == EXIT_SUCCESS) {
         char *message = "Hello Hello\n"
                 "GET Request sent \n"
-                "This is response.\n";
+                "This is GET response.\n";
         success_response(client, message);
     } else {
         char *message = "Hello Hello\n";
