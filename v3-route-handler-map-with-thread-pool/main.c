@@ -1,4 +1,3 @@
-#include "libs/uthash.h"
 #include <arpa/inet.h>
 #include <bits/pthreadtypes.h>
 #include <netinet/in.h>
@@ -10,6 +9,8 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+#include "libs/uthash.h"
+#include "libs/cJSON.h"
 
 #define PORT 9990
 #define BACKLOG 10
@@ -157,7 +158,7 @@ void error_response(Client *client, const char *header, const char *msg)
 
 void *home_request(void *ctx)
 {
-    sleep(1); // simulate sleep
+    // sleep(1); // simulate sleep
     Client *client = (Client *)ctx;
     char filename[255] = {0};
     if (
@@ -220,6 +221,23 @@ void *bye_handler(void *ctx)
 
     char *message = "goodbye\n";
     success_response(client, message);
+    return NULL;
+}
+
+void *json_handler(void *ctx) 
+{
+    Client *client = (Client *)ctx;
+    cJSON *json = cJSON_CreateObject();
+    
+    cJSON_AddStringToObject(json, "name", "John doe");
+    cJSON_AddStringToObject(json, "message", "HELLO WORLD");
+    cJSON_AddNumberToObject(json, "id", 100);
+    char *json_str = cJSON_Print(json);
+    success_response(client, json_str);
+    
+    cJSON_free(json_str);
+    cJSON_Delete(json);
+    
     return NULL;
 }
 
@@ -301,6 +319,8 @@ int register_routes()
 
     add_handler(&handlerMap, "/hello", hello_handler);
     add_handler(&handlerMap, "/bye", bye_handler);
+    add_handler(&handlerMap, "/json", json_handler);
+    
 
     return EXIT_SUCCESS;
 }
