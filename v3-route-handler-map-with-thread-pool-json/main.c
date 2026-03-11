@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <bits/pthreadtypes.h>
+#include <bits/types/struct_iovec.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -13,15 +14,21 @@
 #include "libs/cJSON.h"
 
 #define PORT 9990
-#define BACKLOG 10
+#define BACKLOG 25
 #define BUFFER_SIZE 1024
-#define THREAD_POOL_SIZE 30
+#define THREAD_POOL_SIZE 50
 
 typedef void *(*handler_fn)(void *ctx);
 const char *html_heading = "HTTP/1.1 200 OK\r\n"
     "Content-Type: text/html\r\n"
     "Connection: close\r\n"
     "\r\n";
+
+const char *rest_heading = "HTTP/1.1 200 OK\r\n"
+    "Content-Type: application/json\r\n"
+    "Cache-Control: no-cache\r\n"
+    "\r\n"
+    ;
 
 typedef struct
 {
@@ -141,6 +148,20 @@ void success_response(Client *client, const char *msg)
     free(client);
 }
 
+void success_json_response(Client *client, const char *msg) 
+{
+    send(client->client_fd, rest_heading, strlen(rest_heading), 0);
+    if(send(client->client_fd, msg, strlen(msg), 0) < 0) {
+        perror("FAILED TO SEND REST MESSAGE:");
+        goto cleanup;
+    }
+    shutdown(client->client_fd, SHUT_WR);
+    
+    cleanup:
+        close(client->client_fd);
+        free(client);
+}
+
 void error_response(Client *client, const char *header, const char *msg)
 {
     send(client->client_fd, header, strlen(header), 0);
@@ -240,11 +261,26 @@ void *json_handler(void *ctx)
     Client *client = (Client *)ctx;
     cJSON *json = cJSON_CreateObject();
     
-    cJSON_AddStringToObject(json, "name", "John doe");
-    cJSON_AddStringToObject(json, "message", "HELLO WORLD");
-    cJSON_AddNumberToObject(json, "id", 100);
+    if (strcmp(client->method, "POST") == EXIT_SUCCESS) {
+        cJSON_AddStringToObject(json, "status", "true");
+        cJSON_AddStringToObject(json, "message", "Data saved successfully.");
+        cJSON_AddStringToObject(json, "name", "John doe");
+        cJSON_AddStringToObject(json, "message", "HELLO WORLD");
+        cJSON_AddNumberToObject(json, "id", 100);
+    } else if(strcmp(client->method, "GET") == EXIT_SUCCESS) {
+        cJSON_AddStringToObject(json, "name", "John doe");
+        cJSON_AddStringToObject(json, "status", "true");
+        cJSON_AddStringToObject(json, "message", "Data fetched successfully.");
+        cJSON_AddStringToObject(json, "message", "HELLO WORLD");
+        cJSON_AddNumberToObject(json, "id", 100);
+    } else {
+        cJSON_AddStringToObject(json, "status", "false");
+        cJSON_AddStringToObject(json, "message", "Method not supported, only POST and GET are supported.");
+        cJSON_AddNumberToObject(json, "id", 100);
+    } 
+    
     char *json_str = cJSON_Print(json);
-    success_response(client, json_str);
+    success_json_response(client, json_str);
     
     cJSON_free(json_str);
     cJSON_Delete(json);

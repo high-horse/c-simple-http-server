@@ -2,7 +2,7 @@ import random
 import requests
 
 def main():
-    pages = ['', 'home', 'about', 'contact', 'projects', 'favicon.ico']
+    pages = ['', 'home', 'about', 'contact', 'projects', 'hello', 'bye', 'json']
     index = random.randint(0, len(pages) - 1)
     page = pages[index]
     url = f'http://localhost:9990/{page}'
