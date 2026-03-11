@@ -1,2 +1,6 @@
 test/output.txt
 test/time.txt
+
+
+*.out
+server.out

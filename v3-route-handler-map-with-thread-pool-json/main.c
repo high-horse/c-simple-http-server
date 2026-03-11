@@ -1,3 +1,4 @@
+#define _GNU_SOURCE  
 #include <arpa/inet.h>
 #include <bits/pthreadtypes.h>
 #include <bits/types/struct_iovec.h>
@@ -13,7 +14,7 @@
 #include "libs/uthash.h"
 #include "libs/cJSON.h"
 
-#define PORT 9990
+#define PORT 9999
 #define BACKLOG 25
 #define BUFFER_SIZE 1024
 #define THREAD_POOL_SIZE 50
@@ -201,10 +202,7 @@ void *home_request(void *ctx)
     {
         strcpy(filename, "static/projects.html");
     }
-    else if (strcmp(client->route, "/favicon.ico") == EXIT_SUCCESS)
-    {
-        strcpy(filename, "static/favicon.ico");
-    }
+   
     FILE *html = fopen(filename, "r");
     if (html == NULL)
     {
@@ -313,6 +311,70 @@ void *not_found_handler(void *ctx)
     return NULL;
 }
 
+const char *get_content_type(const char *filename) {
+    const char *ext = strrchr(filename, '.');
+    
+    if(!ext) return "plain/text";
+    
+    if(strcmp(ext, ".html") == EXIT_SUCCESS) return  "text/html";
+    else if (strcmp(ext, ".css") == EXIT_SUCCESS) return  "text/css";
+    else if(strcmp(ext, ".js") == EXIT_SUCCESS) return  "application/javascript";
+    else if (strcmp(ext, ".json") == EXIT_SUCCESS) return "application/json";
+    else if (strcmp(ext, ".png") == EXIT_SUCCESS) return "image/png";
+    else if(strcmp(ext, ".jpg") == EXIT_SUCCESS) return "image/jpeg";
+    else if(strcmp(ext, ".ico") == EXIT_SUCCESS) return "image/x-icon";
+    
+    else return "plain/text";
+}
+
+void *serve_static_resources(void *ctx)
+{
+    Client *client = (Client * ) ctx;
+    char *filename;
+    int res = asprintf(&filename, "static%s", client->route);
+    if(res < 0){
+        perror("ASPRINTF ERROR:");
+        not_found_handler(client);
+        return NULL;
+    }
+    
+    if(access(filename, F_OK) != EXIT_SUCCESS) {
+        printf("file not found %s\n", filename);
+        perror("FILE NOT FOUND:");
+        return not_found_handler(client);
+    }
+    
+    printf("filename serched is %s\n", filename);
+    
+    // not_found_handler(client);
+    // return NULL;
+    FILE *file = fopen(filename, "r");
+    if(file == NULL) {
+         return not_found_handler(client);
+    }
+    
+    const char *type = get_content_type(filename);
+    char header[256];
+    sprintf(header,
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: %s\r\n"
+            "Connection: close\r\n"
+            "\r\n",
+            type);
+    
+    char read_buffer[BUFFER_SIZE];
+    int read_size = 0;
+    send(client->client_fd, header, strlen(header), 0);
+    while ((read_size = fread(read_buffer, 1, BUFFER_SIZE, file)) > 0)
+    {
+        send(client->client_fd, read_buffer, read_size, 0);
+    }
+    shutdown(client->client_fd, SHUT_WR);
+    close(client->client_fd);
+    free(client);
+    return NULL;
+}
+
 void *dispatch_handler(void *ctx)
 {
     Client *client = (Client *)ctx;
@@ -337,8 +399,9 @@ void *dispatch_handler(void *ctx)
     }
     else
     {
-        printf("ERROR:: HANDLER NOT FOUND FOR ROUTE %s\n", client->route);
-        not_found_handler(client);
+        serve_static_resources(client);
+        // printf("ERROR:: HANDLER NOT FOUND FOR ROUTE %s\n", client->route);
+        // not_found_handler(client);
     }
     return NULL;
 }
@@ -362,13 +425,11 @@ int register_routes()
     add_handler(&handlerMap, "/about", home_request);
     add_handler(&handlerMap, "/contact", home_request);
     add_handler(&handlerMap, "/projects", home_request);
-    add_handler(&handlerMap, "/facicon.ico", home_request);
 
     add_handler(&handlerMap, "/hello", hello_handler);
     add_handler(&handlerMap, "/bye", bye_handler);
     add_handler(&handlerMap, "/json", json_handler);
     
-
     return EXIT_SUCCESS;
 }
 
