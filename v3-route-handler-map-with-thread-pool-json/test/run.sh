@@ -1,9 +1,12 @@
 #!/bin/bash
 
-# Number of concurrent runs
-CONCURRENT=2000
+# Change to the directory containing this script
+cd "$(dirname "$0")"
 
-# Path to your Python script
+# Number of concurrent runs
+CONCURRENT=2
+
+# Path to your Python script (now relative to run.sh)
 PYTHON_SCRIPT="request.py"
 
 echo "Starting $CONCURRENT concurrent requests..."
@@ -12,7 +15,6 @@ for i in $(seq 1 $CONCURRENT); do
     python3 "$PYTHON_SCRIPT" &
 done
 
-# Wait for all background jobs to finish
 wait
 
 echo "All requests completed."
